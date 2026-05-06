@@ -416,3 +416,256 @@ HTTPS and wildcard SSL configuration will be handled in the next task:
 ```text
 DEVOPS-6: Configure SSL wildcard certificate
 ```
+
+## DEVOPS-6 – Configure SSL Wildcard Certificate
+
+### Objective
+
+Configure HTTPS for both Nginx virtual hosts using a Let's Encrypt wildcard certificate.
+
+The certificate covers:
+
+```text
+*.devopsroad.xyz
+devopsroad.xyz
+```
+
+This allows both subdomains to use the same SSL certificate:
+
+```text
+https://app1.devopsroad.xyz
+https://app2.devopsroad.xyz
+```
+
+### SSL Architecture
+
+```text
+Browser
+   |
+   | HTTPS
+   v
+Nginx on EC2
+   |
+   | wildcard certificate
+   v
+Let's Encrypt certificate for *.devopsroad.xyz
+```
+
+### DNS Challenge Method
+
+The wildcard certificate was generated using a DNS challenge.
+
+Because DNS is managed in AWS Route 53, Certbot was configured with the Route 53 DNS plugin:
+
+```bash
+sudo apt install certbot python3-certbot-dns-route53 -y
+```
+
+### IAM Role for Certbot
+
+An IAM role was attached to the EC2 instance to allow Certbot to create and remove temporary DNS challenge records in Route 53.
+
+IAM policy used:
+
+```text
+Project02CertbotRoute53Policy
+```
+
+IAM role used:
+
+```text
+Project02CertbotRoute53Role
+```
+
+The role allows Certbot to access Route 53 without storing AWS access keys directly on the server.
+
+### Required Route 53 Permissions
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "route53:ListHostedZones",
+        "route53:GetChange"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "route53:ChangeResourceRecordSets"
+      ],
+      "Resource": "arn:aws:route53:::hostedzone/*"
+    }
+  ]
+}
+```
+
+### Verify IAM Role on EC2
+
+The IAM role was validated from the EC2 instance using:
+
+```bash
+aws sts get-caller-identity
+```
+
+Expected result:
+
+```text
+arn:aws:sts::<account-id>:assumed-role/Project02CertbotRoute53Role/...
+```
+
+### Certbot Dry Run
+
+Before requesting the real certificate, a dry run was executed:
+
+```bash
+sudo certbot certonly \
+  --dns-route53 \
+  -d "*.devopsroad.xyz" \
+  -d "devopsroad.xyz" \
+  --dry-run \
+  --agree-tos \
+  -m an-email@example.com \
+  --non-interactive
+```
+
+### Generate Wildcard Certificate
+
+The real wildcard certificate was generated using:
+
+```bash
+sudo certbot certonly \
+  --dns-route53 \
+  -d "*.devopsroad.xyz" \
+  -d "devopsroad.xyz" \
+  --agree-tos \
+  -m an-email@example.com \
+  --non-interactive
+```
+
+### Certificate Location
+
+The certificate files were generated under:
+
+```text
+/etc/letsencrypt/live/devopsroad.xyz/
+```
+
+Main files used by Nginx:
+
+```text
+/etc/letsencrypt/live/devopsroad.xyz/fullchain.pem
+/etc/letsencrypt/live/devopsroad.xyz/privkey.pem
+```
+
+### Nginx HTTPS Configuration
+
+Both Nginx virtual hosts were updated to listen on port 443 and use the wildcard certificate.
+
+HTTP traffic is redirected to HTTPS.
+
+Example:
+
+```nginx
+server {
+    listen 80;
+    server_name app1.devopsroad.xyz;
+
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name app1.devopsroad.xyz;
+
+    ssl_certificate /etc/letsencrypt/live/devopsroad.xyz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/devopsroad.xyz/privkey.pem;
+
+    root /var/www/app1;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+```
+
+### Nginx Validation
+
+The Nginx configuration was validated using:
+
+```bash
+sudo nginx -t
+```
+
+Expected result:
+
+```text
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+```
+
+Nginx was reloaded using:
+
+```bash
+sudo systemctl reload nginx
+```
+
+### HTTPS Validation
+
+The HTTPS endpoints were tested using:
+
+```bash
+curl -I https://app1.devopsroad.xyz
+curl -I https://app2.devopsroad.xyz
+```
+
+Expected result:
+
+```text
+HTTP/1.1 200 OK
+```
+
+or:
+
+```text
+HTTP/2 200
+```
+
+### HTTP to HTTPS Redirect Validation
+
+The HTTP endpoints were tested using:
+
+```bash
+curl -I http://app1.devopsroad.xyz
+curl -I http://app2.devopsroad.xyz
+```
+
+Expected result:
+
+```text
+HTTP/1.1 301 Moved Permanently
+Location: https://app1.devopsroad.xyz/
+```
+
+and:
+
+```text
+HTTP/1.1 301 Moved Permanently
+Location: https://app2.devopsroad.xyz/
+```
+
+### Browser Validation
+
+Both websites were successfully validated in Google Chrome:
+
+```text
+https://app1.devopsroad.xyz
+https://app2.devopsroad.xyz
+```
+
+Both domains display the correct static website content over HTTPS.

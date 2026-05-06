@@ -242,3 +242,177 @@ AWS Route 53 Hosted Zone
         v
 EC2 public IP
 ```
+
+## DEVOPS-5 – Configure Nginx Virtual Hosts
+
+### Objective
+
+Configure Nginx to serve two different static websites from the same AWS EC2 instance using virtual hosts.
+
+Each website is stored in the GitHub repository and deployed to the EC2 instance using the `setup.sh` deployment script.
+
+### Repository-based Deployment Flow
+
+```text
+GitHub repository
+        |
+        | git clone / git pull
+        v
+EC2 Ubuntu Server
+        |
+        | setup.sh
+        v
+Nginx virtual hosts
+        |
+        ├── app1.devopsroad.xyz -> /var/www/app1
+        └── app2.devopsroad.xyz -> /var/www/app2
+```
+
+### Website Source Files
+
+The static websites are stored in the repository:
+
+```text
+sites/
+├── app1/
+│   └── index.html
+└── app2/
+    └── index.html
+```
+
+### Nginx Configuration Files
+
+The Nginx virtual host configuration files are stored in the repository:
+
+```text
+nginx/
+├── app1.conf
+└── app2.conf
+```
+
+### App1 Virtual Host
+
+```nginx
+server {
+    listen 80;
+    server_name app1.devopsroad.xyz;
+
+    root /var/www/app1;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+```
+
+### App2 Virtual Host
+
+```nginx
+server {
+    listen 80;
+    server_name app2.devopsroad.xyz;
+
+    root /var/www/app2;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+```
+
+### Deployment Script
+
+The deployment is automated using:
+
+```bash
+./setup.sh
+```
+
+The script performs the following actions:
+
+```text
+1. Installs Nginx
+2. Creates /var/www/app1 and /var/www/app2
+3. Copies static website files from the repository to /var/www
+4. Copies Nginx virtual host configs to /etc/nginx/sites-available
+5. Enables both virtual hosts using symbolic links
+6. Disables the default Nginx site
+7. Tests the Nginx configuration
+8. Reloads Nginx
+```
+
+### Deployment on EC2
+
+The repository was cloned on the EC2 instance:
+
+```bash
+git clone https://github.com/USERNAME/project-02-nginx-virtual-hosts.git
+cd project-02-nginx-virtual-hosts
+```
+
+For branch-based validation before merging the pull request, the following branch was used:
+
+```bash
+git checkout DEVOPS-5-configure-nginx-virtual-hosts
+```
+
+The setup script was executed:
+
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+### Nginx Validation
+
+The Nginx configuration was validated using:
+
+```bash
+sudo nginx -t
+```
+
+Expected result:
+
+```text
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+```
+
+### Local EC2 Validation
+
+The virtual hosts were tested locally on the EC2 instance using the `Host` header:
+
+```bash
+curl -H "Host: app1.devopsroad.xyz" http://localhost
+curl -H "Host: app2.devopsroad.xyz" http://localhost
+```
+
+Expected result:
+
+```text
+App1 running on Nginx
+App2 running on Nginx
+```
+
+### Public HTTP Validation
+
+The websites were validated in the browser using:
+
+```text
+http://app1.devopsroad.xyz
+http://app2.devopsroad.xyz
+```
+
+Both subdomains successfully served different static websites from the same EC2 instance using Nginx virtual hosts.
+
+### Notes
+
+At this stage, the websites are available over HTTP only.
+
+HTTPS and wildcard SSL configuration will be handled in the next task:
+
+```text
+DEVOPS-6: Configure SSL wildcard certificate
+```

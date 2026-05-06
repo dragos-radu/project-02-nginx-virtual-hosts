@@ -669,3 +669,225 @@ https://app2.devopsroad.xyz
 ```
 
 Both domains display the correct static website content over HTTPS.
+
+## DEVOPS-7 – Validate Domains and HTTPS
+
+### Objective
+
+Validate the final setup for both static websites.
+
+This task confirms that DNS, Nginx virtual hosts, HTTPS, HTTP-to-HTTPS redirects, and logging are working correctly.
+
+### Validation Scope
+
+The validation covers:
+
+```text
+DNS resolution
+HTTP to HTTPS redirect
+HTTPS availability
+SSL certificate details
+Nginx configuration
+Nginx service status
+Website content
+Nginx access and error logs
+Browser validation
+```
+
+### DNS Validation
+
+The following commands were used to verify that both subdomains resolve to the EC2 public IP address:
+
+```bash
+dig app1.devopsroad.xyz +short
+dig app2.devopsroad.xyz +short
+```
+
+Expected result:
+
+```text
+Both domains return the EC2 public IP address.
+```
+
+### HTTP to HTTPS Redirect Validation
+
+The HTTP endpoints were tested using:
+
+```bash
+curl -I http://app1.devopsroad.xyz
+curl -I http://app2.devopsroad.xyz
+```
+
+Expected result:
+
+```text
+HTTP/1.1 301 Moved Permanently
+Location: https://app1.devopsroad.xyz/
+
+HTTP/1.1 301 Moved Permanently
+Location: https://app2.devopsroad.xyz/
+```
+
+This confirms that all HTTP traffic is redirected to HTTPS.
+
+### HTTPS Validation
+
+The HTTPS endpoints were tested using:
+
+```bash
+curl -I https://app1.devopsroad.xyz
+curl -I https://app2.devopsroad.xyz
+```
+
+Expected result:
+
+```text
+HTTP/2 200
+```
+
+or:
+
+```text
+HTTP/1.1 200 OK
+```
+
+This confirms that both websites are available over HTTPS.
+
+### Website Content Validation
+
+The website content was validated using:
+
+```bash
+curl -s https://app1.devopsroad.xyz | grep "App1 running on Nginx"
+curl -s https://app2.devopsroad.xyz | grep "App2 running on Nginx"
+```
+
+Expected result:
+
+```text
+App1 running on Nginx
+App2 running on Nginx
+```
+
+This confirms that each subdomain serves the correct static website.
+
+### SSL Certificate Validation
+
+The SSL certificate was inspected using:
+
+```bash
+openssl s_client -connect app1.devopsroad.xyz:443 -servername app1.devopsroad.xyz </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -dates
+```
+
+```bash
+openssl s_client -connect app2.devopsroad.xyz:443 -servername app2.devopsroad.xyz </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -dates
+```
+
+Expected result:
+
+```text
+The certificate is issued by Let's Encrypt and is valid for the configured domain.
+```
+
+### Nginx Configuration Validation
+
+On the EC2 instance, the Nginx configuration was validated using:
+
+```bash
+sudo nginx -t
+```
+
+Expected result:
+
+```text
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+```
+
+### Nginx Service Validation
+
+The Nginx service status was checked using:
+
+```bash
+systemctl status nginx
+```
+
+Expected result:
+
+```text
+active (running)
+```
+
+### Nginx Logs Validation
+
+Access logs were checked using:
+
+```bash
+sudo tail -n 30 /var/log/nginx/access.log
+```
+
+Error logs were checked using:
+
+```bash
+sudo tail -n 30 /var/log/nginx/error.log
+```
+
+Expected result:
+
+```text
+Requests are visible in the access log and no critical errors are present in the error log.
+```
+
+### Browser Validation
+
+Both websites were validated in Google Chrome:
+
+```text
+https://app1.devopsroad.xyz
+https://app2.devopsroad.xyz
+```
+
+Expected result:
+
+```text
+Both websites load successfully over HTTPS and display the correct static content.
+```
+
+### Screenshots
+
+Validation screenshots are stored in:
+
+```text
+screenshots/
+```
+
+Recommended screenshots:
+
+```text
+screenshots/app1.png
+screenshots/app2.png
+screenshots/https-validation.png
+screenshots/nginx-validation.png
+```
+
+### Final Result
+
+The final architecture is working successfully:
+
+```text
+Internet
+   |
+   v
+Route 53 DNS
+   |
+   v
+AWS EC2 Ubuntu Server
+   |
+   v
+Nginx Virtual Hosts
+   |
+   ├── app1.devopsroad.xyz -> /var/www/app1 -> HTTPS
+   └── app2.devopsroad.xyz -> /var/www/app2 -> HTTPS
+```
+
+Project 02 successfully demonstrates a production-like Nginx virtual host setup with custom subdomains and HTTPS using a Let's Encrypt wildcard certificate.

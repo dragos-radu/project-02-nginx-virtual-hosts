@@ -15,7 +15,7 @@ Tasks:
 - DEVOPS-7: Validate domains and HTTPS
 
 ## Status
-In Progess
+Completed
 
 ## Planned Domains
 
